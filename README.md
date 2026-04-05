@@ -109,8 +109,8 @@ Claude produces a structured JSON report containing:
 ### 1. Clone this repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/ot-ransomware-intelligence-platform.git
-cd ot-ransomware-intelligence-platform
+git clone https://github.com/abbeyadegbola/AI-Powered-OT-Threat-Intel-Agent.git
+cd AI-Powered-OT-Threat-Intel-Agent
 ```
 
 ### 2. Run n8n with Docker
@@ -129,7 +129,7 @@ Or with Docker Compose — see [`docker-compose.yml`](./docker-compose.yml).
 
 1. Open n8n at `http://localhost:5678`
 2. Click the **⋮ menu** (top right) → **Import from file**
-3. Select `OT_Ransomware_Intelligence_Platform_v300_FIXED.json`
+3. Select `OT_Ransomware_Intel_Agent.json`
 
 ### 4. Configure credentials
 
@@ -192,7 +192,7 @@ The report is styled for dark-mode viewing and is print-friendly.
 
 ```
 .
-├── OT_Ransomware_Intelligence_Platform_v300_FIXED.json  # Main workflow
+├── workflows/OT_Ransomware_Intel_Agent.json              # Main workflow
 ├── docker-compose.yml                                    # Docker Compose setup
 ├── .env.example                                          # Environment variable template
 ├── CHANGELOG.md                                          # Version history
