@@ -188,25 +188,6 @@ The report is styled for dark-mode viewing and is print-friendly.
 
 ---
 
-## 🔧 Troubleshooting
-
-### ransomware.live returns 502
-The ransomware.live API server is intermittently unreliable. The workflow uses GitHub raw URLs as a stable mirror. If you still see errors, the parse nodes return graceful empty fallbacks so the rest of the workflow continues unaffected.
-
-### "Model output doesn't fit required format"
-This means Claude's response didn't match the output schema. The simplified schema in v300 minimises this. If it recurs, check the **OT Intel Output Parser** node and ensure the schema has no deeply nested required fields.
-
-### CISA KEV returns no data
-Ensure the **Fetch CISA KEV** node has `Accept: application/json` and `User-Agent: Mozilla/5.0` headers set. CISA blocks requests without a proper User-Agent.
-
-### Workflow won't execute (shows issues)
-Right-click any nodes with orange warning triangles (Slack, Email, Google Docs) → **Disable**. These require credentials to pass validation even when not in the execution path.
-
-### Credential test shows error on save
-This is a known n8n false positive for Anthropic credentials. If your workflow executes successfully, the credential is working correctly — ignore the save-time warning.
-
----
-
 ## 📁 Repository Structure
 
 ```
