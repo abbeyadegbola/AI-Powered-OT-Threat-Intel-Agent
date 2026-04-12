@@ -1,0 +1,940 @@
+{
+  "name": "310 - OT & Ransomware Intelligence Platform (Energy Sector | Multi-Agency | OTX Enrichment)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## \ud83d\udd34 Level 310 \u2014 OT & Ransomware Intelligence Platform\n**Energy Sector Focus \u2014 Enhanced Multi-Source Edition**\n\n### Data Sources (all free, no API key required)\n- **ransomware.live** \u2014 recent victims + threat groups (GitHub mirror)\n- **CISA KEV** \u2014 Known Exploited Vulnerabilities (ICS/OT filtered)\n- **CISA ICS Advisories** \u2014 OT/ICS specific advisories RSS\n- **CISA Cybersecurity Advisories** \u2014 Joint agency alerts (AA feed)\n- **NCSC UK** \u2014 UK government cybersecurity advisories RSS\n\n### IOC Enrichment (API keys \u2014 set in n8n Settings \u2192 Variables)\n- **VirusTotal** \u2014 IOC reputation (`$vars.VT_API_KEY`)\n- **AbuseIPDB** \u2014 IP abuse scoring (`$vars.ABUSEIPDB_API_KEY`)\n- **AlienVault OTX** \u2014 Threat actor attribution (`$vars.OTX_API_KEY`)\n\n### Output\n- Downloadable HTML intelligence brief (always runs)\n- Slack / Email / Google Docs \u2014 disabled by default\n  \u2192 Add credentials then right-click node \u2192 Enable\n\n### Schedule: Every Sunday at 08:00\n\n### First Time Setup\n1. Import this workflow\n2. Connect your Anthropic credential to the Claude model node\n3. Set Variables: VT_API_KEY, ABUSEIPDB_API_KEY, OTX_API_KEY\n   (OTX free account at otx.alienvault.com \u2192 Settings \u2192 API Key)\n4. Click Execute Workflow",
+        "height": 560,
+        "width": 560,
+        "color": 1
+      },
+      "id": "readme-001",
+      "name": "README",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -220,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### \ud83d\udce1 PHASE 1 \u2014 Data Collection\nSix parallel feeds fire simultaneously:\n1. ransomware.live victims (GitHub mirror)\n2. ransomware.live threat groups (GitHub mirror)\n3. CISA KEV JSON feed\n4. CISA ICS Advisories RSS (ICSA codes)\n5. CISA Cybersecurity Advisories RSS (AA codes \u2014 joint agency alerts)\n6. NCSC UK Advisories RSS\n\nAll free, no API keys needed for fetching.",
+        "height": 200,
+        "width": 380,
+        "color": 3
+      },
+      "id": "note-phase1",
+      "name": "Phase 1 Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        400,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### \ud83d\udd2c PHASE 2 \u2014 Normalise & Enrich\n- Filter victims to OT/Energy sectors\n- Parse CISA KEV for ICS vendors\n- Parse ICS Advisories + AA Advisories + NCSC\n- Extract IOCs \u2192 VirusTotal + AbuseIPDB + OTX\n- OTX adds threat actor attribution per IOC\n- Merge all signals \u2192 single AI payload",
+        "height": 200,
+        "width": 380,
+        "color": 3
+      },
+      "id": "note-phase2",
+      "name": "Phase 2 Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### \ud83e\udd16 PHASE 3 \u2014 AI Analysis\nClaude (OT specialist prompt) produces:\n- Executive summary + key findings\n- ICS Kill Chain mapped TTPs\n- Purdue model level targeting\n- Physical impact assessment\n- Threat actor profiles\n- CVE spotlight from CISA KEV\n- Prioritised OT-safe recommendations",
+        "height": 200,
+        "width": 380,
+        "color": 3
+      },
+      "id": "note-phase3",
+      "name": "Phase 3 Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1860,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### \ud83d\udcc4 PHASE 4 \u2014 Output\n- HTML brief always generated as download\n- Slack: disabled (enable after adding credential)\n- Email: disabled (enable after adding credential)\n- Google Docs: disabled (enable after adding credential)",
+        "height": 200,
+        "width": 380,
+        "color": 3
+      },
+      "id": "note-phase4",
+      "name": "Phase 4 Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2580,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                0
+              ],
+              "triggerAtHour": 8,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "trigger-001",
+      "name": "Every Sunday 08:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        100,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://raw.githubusercontent.com/jmousqueton/ransomware.live/main/posts.json",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "fetch-victims",
+      "name": "Fetch Recent Victims",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        240
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://raw.githubusercontent.com/jmousqueton/ransomware.live/main/groups.json",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "fetch-groups",
+      "name": "Fetch Threat Groups",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        360
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "fetch-kev",
+      "name": "Fetch CISA KEV",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        480
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://us-cert.cisa.gov/ics/advisories/advisories.xml",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0"
+            },
+            {
+              "name": "Accept",
+              "value": "application/rss+xml, application/xml, text/xml"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "fetch-ics-advisories",
+      "name": "Fetch CISA ICS Advisories",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        600
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// \u2500\u2500 FILTER VICTIMS TO OT / ENERGY SECTORS \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst OT_SECTORS = [\n  'energy', 'oil', 'gas', 'electric', 'utilities', 'utility',\n  'nuclear', 'pipeline', 'water', 'wastewater', 'power',\n  'manufacturing', 'critical manufacturing', 'industrial',\n  'chemical', 'mining', 'petrochemical', 'refin', 'grid'\n];\n\nconst items = $input.all();\nconst seen = new Set();\nconst filtered = [];\n\nfor (const item of items) {\n  const raw = item.json;\n  // Handle both array response and single object\n  const records = Array.isArray(raw) ? raw : [raw];\n  for (const rec of records) {\n    if (!rec || typeof rec !== 'object') continue;\n    const key = (rec.post_title || rec.name || JSON.stringify(rec)).slice(0, 100);\n    if (seen.has(key)) continue;\n    seen.add(key);\n    const searchText = [\n      rec.activity || '', rec.post_title || '',\n      rec.country || '', rec.description || '', rec.sector || ''\n    ].join(' ').toLowerCase();\n    if (OT_SECTORS.some(s => searchText.includes(s))) {\n      filtered.push({\n        json: {\n          source: 'ransomware.live',\n          victim_name: rec.post_title || rec.name || 'Unknown',\n          group: rec.group_name || rec.group || 'Unknown',\n          country: rec.country || 'Unknown',\n          sector: rec.activity || rec.sector || 'Unknown',\n          website: rec.website || null,\n          discovered: rec.discovered || rec.published || null\n        }\n      });\n    }\n  }\n}\n\nreturn filtered.slice(0, 80);"
+      },
+      "id": "filter-victims",
+      "name": "Filter OT Victims",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// \u2500\u2500 PARSE THREAT GROUPS \u2014 with 502 / empty fallback \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst OT_GROUPS = [\n  'lockbit', 'blackcat', 'alphv', 'cl0p', 'clop',\n  'play', 'akira', 'black basta', 'rhysida', 'hunters',\n  'medusa', 'ransomhub', 'qilin', 'dragonforce',\n  'volt typhoon', 'bauxite', 'graphite', 'electrum',\n  'voltzite', 'sandworm', 'scattered spider'\n];\n\nconst items = $input.all();\nconst groups = [], ttps = [], tools = [], iocs = [];\nlet hasData = false;\n\nfor (const item of items) {\n  const j = item.json;\n  // Detect HTTP errors\n  if (j?.error || (j?.statusCode && j.statusCode >= 400)) continue;\n  const raw = Array.isArray(j) ? j : (Array.isArray(j?.data) ? j.data : [j]);\n  for (const g of raw) {\n    if (!g || typeof g !== 'object' || !g.name) continue;\n    hasData = true;\n    const name = (g.name || '').toLowerCase();\n    const isRelevant = OT_GROUPS.some(og => name.includes(og)) || raw.length < 30;\n    if (!isRelevant) continue;\n    groups.push({ name: g.name, country: g.country || 'Unknown', description: (g.description || '').slice(0, 200) });\n    if (Array.isArray(g.ttps)) {\n      g.ttps.forEach(t => ttps.push({ group: g.name, tactic: t.tactic || '', technique: t.technique || '', technique_id: t.technique_id || '' }));\n    }\n    if (g.tools && typeof g.tools === 'object') {\n      Object.entries(g.tools).forEach(([cat, list]) => {\n        (Array.isArray(list) ? list : [list]).forEach(tool => {\n          tools.push({ group: g.name, category: cat, tool: typeof tool === 'string' ? tool : (tool?.name || String(tool)) });\n        });\n      });\n    }\n    if (g.btc_address) {\n      (Array.isArray(g.btc_address) ? g.btc_address : [g.btc_address])\n        .filter(Boolean).forEach(addr => iocs.push({ group: g.name, type: 'btc', value: addr }));\n    }\n    if (Array.isArray(g.locations)) {\n      g.locations.filter(l => l.fqdn).forEach(l => iocs.push({ group: g.name, type: 'domain', value: l.fqdn }));\n    }\n  }\n}\n\nreturn [{ json: {\n  source: 'ransomware.live/groups',\n  group_count: groups.length,\n  groups: groups.slice(0, 20),\n  ttps: ttps.slice(0, 60),\n  tools: tools.slice(0, 40),\n  group_iocs: iocs.slice(0, 40),\n  fetch_note: hasData ? 'OK' : 'Groups endpoint unavailable \u2014 workflow continues with empty fallback'\n}}];"
+      },
+      "id": "parse-groups",
+      "name": "Parse Threat Groups",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// \u2500\u2500 PARSE CISA KEV \u2014 robust response unwrapping \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst ICS_VENDORS = [\n  'siemens', 'schneider', 'rockwell', 'allen-bradley', 'honeywell',\n  'ge ', 'general electric', 'abb', 'mitsubishi', 'yokogawa',\n  'emerson', 'aveva', 'osisoft', 'wonderware', 'inductive automation',\n  'beckhoff', 'moxa', 'advantech', 'delta electronics',\n  'hitachi', 'phoenix contact', 'wago', 'pilz', 'omron', 'fanuc'\n];\nconst ICS_KEYWORDS = [\n  'scada', 'ics', 'plc', 'hmi', 'modbus', 'dnp3', 'opc',\n  'historian', 'dcs', 'rtu', 'industrial control', 'control system', 'firmware'\n];\n\nconst items = $input.all();\nlet vulns = [];\n\nfor (const item of items) {\n  const j = item.json;\n  if (Array.isArray(j?.vulnerabilities)) { vulns = j.vulnerabilities; break; }\n  if (Array.isArray(j)) { vulns = j; break; }\n  if (typeof j?.body === 'string') {\n    try { const p = JSON.parse(j.body); if (Array.isArray(p?.vulnerabilities)) { vulns = p.vulnerabilities; break; } } catch(e) {}\n  }\n  // Try all string values in the object\n  for (const val of Object.values(j || {})) {\n    if (typeof val === 'string' && val.includes('cveID')) {\n      try { const p = JSON.parse(val); if (Array.isArray(p?.vulnerabilities)) { vulns = p.vulnerabilities; break; } } catch(e) {}\n    }\n  }\n}\n\nconst filtered = vulns.filter(v => {\n  const text = [v.vendorProject || '', v.product || '', v.vulnerabilityName || '', v.shortDescription || ''].join(' ').toLowerCase();\n  return ICS_VENDORS.some(s => text.includes(s)) || ICS_KEYWORDS.some(s => text.includes(s));\n});\n\nfiltered.sort((a, b) => new Date(b.dateAdded || 0) - new Date(a.dateAdded || 0));\n\nconst recent = filtered.slice(0, 20).map(v => ({\n  cve_id: v.cveID || '',\n  vendor: v.vendorProject || '',\n  product: v.product || '',\n  name: v.vulnerabilityName || '',\n  description: (v.shortDescription || '').slice(0, 200),\n  date_added: v.dateAdded || '',\n  due_date: v.dueDate || '',\n  ransomware_use: v.knownRansomwareCampaignUse || 'Unknown'\n}));\n\nreturn [{ json: {\n  source: 'CISA KEV',\n  total_ics_kevs: filtered.length,\n  ransomware_used_count: recent.filter(v => v.ransomware_use === 'Known').length,\n  recent_kevs: recent,\n  fetch_note: vulns.length > 0 ? 'OK' : 'KEV feed returned no data \u2014 check fetch node headers'\n}}];"
+      },
+      "id": "parse-kev",
+      "name": "Parse CISA KEV (ICS Filter)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// \u2500\u2500 PARSE CISA ICS ADVISORIES RSS \u2014 robust XML extraction \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst items = $input.all();\nlet xmlStr = '';\n\nfor (const item of items) {\n  const j = item.json;\n  if (typeof j?.body === 'string' && j.body.includes('<item>'))       { xmlStr = j.body; break; }\n  if (typeof j?.data === 'string' && j.data.includes('<item>'))       { xmlStr = j.data; break; }\n  if (typeof j === 'string'       && j.includes('<item>'))            { xmlStr = j; break; }\n  // Check all string values\n  for (const val of Object.values(j || {})) {\n    if (typeof val === 'string' && val.includes('<item>')) { xmlStr = val; break; }\n  }\n  if (xmlStr) break;\n}\n\nconst OT_KW = [\n  'energy', 'scada', 'ics', 'plc', 'hmi', 'industrial', 'power',\n  'grid', 'pipeline', 'oil', 'gas', 'electric', 'utility', 'water',\n  'nuclear', 'siemens', 'schneider', 'rockwell', 'honeywell',\n  'abb', 'aveva', 'modbus', 'dnp3', 'opc', 'historian', 'rtu', 'dcs'\n];\n\nlet advisories = [];\n\nif (xmlStr) {\n  const itemMatches = [...xmlStr.matchAll(/<item>([\\s\\S]*?)<\\/item>/gi)];\n  advisories = itemMatches.slice(0, 30).map(m => {\n    const block = m[1];\n    const getTag = tag => {\n      const r = block.match(new RegExp(`<${tag}[^>]*>([\\\\s\\\\S]*?)<\\\\/${tag}>`, 'i'));\n      return r ? r[1].replace(/<!\\[CDATA\\[/g,'').replace(/\\]\\]>/g,'')\n                     .replace(/<[^>]+>/g,'').replace(/&lt;/g,'<')\n                     .replace(/&gt;/g,'>').replace(/&amp;/g,'&').trim() : '';\n    };\n    return {\n      title: getTag('title'),\n      link: getTag('link'),\n      published: getTag('pubDate'),\n      summary: getTag('description').slice(0, 300)\n    };\n  }).filter(a => a.title);\n\n  advisories.forEach(a => {\n    const text = (a.title + ' ' + a.summary).toLowerCase();\n    a.ot_relevant = OT_KW.some(kw => text.includes(kw));\n  });\n}\n\nconst otRelevant = advisories.filter(a => a.ot_relevant);\n\nreturn [{ json: {\n  source: 'CISA ICS Advisories',\n  total_advisories: advisories.length,\n  ot_relevant_count: otRelevant.length,\n  advisories: advisories,\n  ot_advisories: otRelevant,\n  fetch_note: xmlStr ? 'OK' : 'RSS feed returned no parseable XML \u2014 using empty fallback'\n}}];"
+      },
+      "id": "parse-ics-advisories",
+      "name": "Parse ICS Advisories",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// \u2500\u2500 EXTRACT IOCs FOR ENRICHMENT \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst items = $input.all();\nconst iocs = [];\n\nfor (const item of items) {\n  const v = item.json;\n  if (v.website) {\n    const domain = v.website\n      .replace(/https?:\\/\\//i, '').split('/')[0].split('?')[0].trim();\n    if (domain && domain.includes('.') && !iocs.find(i => i.value === domain)) {\n      iocs.push({ type: 'domain', value: domain, victim: v.victim_name, group: v.group });\n    }\n  }\n}\n\nreturn iocs.slice(0, 10).map(i => ({ json: i }));"
+      },
+      "id": "extract-iocs",
+      "name": "Extract IOCs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://www.virustotal.com/api/v3/{{ $json.type === 'ip' ? 'ip_addresses' : 'domains' }}/{{ $json.value }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-apikey",
+              "value": "={{ $vars.VT_API_KEY || '' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "vt-lookup",
+      "name": "VirusTotal Lookup",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1300,
+        160
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.abuseipdb.com/api/v2/check?ipAddress={{ $json.value }}&maxAgeInDays=90",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Key",
+              "value": "={{ $vars.ABUSEIPDB_API_KEY || '' }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "abuseipdb-lookup",
+      "name": "AbuseIPDB Lookup",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1300,
+        300
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// \u2500\u2500 ENRICH IOC WITH VT + OTX RESULTS \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n// Merges VirusTotal malicious score, AbuseIPDB (passed through input),\n// and OTX pulse/actor attribution into a single enriched IOC record.\n\nconst vtData  = $node['VirusTotal Lookup'].json;\nconst otxData = $node['OTX IOC Lookup'].json;\n\n// VirusTotal\nconst malicious  = vtData?.data?.attributes?.last_analysis_stats?.malicious  || 0;\nconst suspicious = vtData?.data?.attributes?.last_analysis_stats?.suspicious || 0;\nconst riskFlag   = malicious > 5 ? 'CONFIRMED_MALICIOUS'\n                 : (malicious > 0 || suspicious > 3) ? 'SUSPICIOUS' : 'CLEAN';\n\n// OTX \u2014 extract pulse count, threat actor tags, and malware families\nconst pulseCount   = otxData?.pulse_info?.count || 0;\nconst pulses       = otxData?.pulse_info?.pulses || [];\nconst actorTags    = [...new Set(pulses.flatMap(p => p.adversary ? [p.adversary] : []))].filter(Boolean).slice(0, 5);\nconst malwareFamilies = [...new Set(pulses.flatMap(p => (p.malware_families || []).map(m => m.display_name || m)))].filter(Boolean).slice(0, 5);\nconst otxTags      = [...new Set(pulses.flatMap(p => p.tags || []))].filter(Boolean).slice(0, 10);\nconst otxRisk      = pulseCount > 10 ? 'HIGH' : pulseCount > 3 ? 'MEDIUM' : pulseCount > 0 ? 'LOW' : 'NONE';\n\nconst input = $input.all()[0]?.json || {};\n\nreturn [{ json: {\n  ...input,\n  // VT fields\n  ioc_risk_flag:    riskFlag,\n  vt_malicious:     malicious,\n  vt_suspicious:    suspicious,\n  // OTX fields\n  otx_pulse_count:  pulseCount,\n  otx_risk:         otxRisk,\n  otx_actors:       actorTags,\n  otx_malware:      malwareFamilies,\n  otx_tags:         otxTags\n}}];"
+      },
+      "id": "enrich-ioc",
+      "name": "Enrich IOC Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// \u2500\u2500 MERGE ALL INTEL SOURCES (v310) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n// Collects items from ALL upstream branches via $input.all().\n// Each parser stamps 'source' for identification.\n// New in v310: CISA AA advisories, NCSC UK, OTX IOC enrichment.\n\nconst allItems = $input.all().map(i => i.json).filter(Boolean);\n\nconst victims    = allItems.filter(i => i.source === 'ransomware.live');\nconst groupData  = allItems.find(i  => i.source === 'ransomware.live/groups') || {};\nconst kevData    = allItems.find(i  => i.source === 'CISA KEV')               || {};\nconst icsData    = allItems.find(i  => i.source === 'CISA ICS Advisories')    || {};\nconst cisaAAData = allItems.find(i  => i.source === 'CISA AA Advisories')     || {};\nconst ncscData   = allItems.find(i  => i.source === 'NCSC UK')                || {};\nconst enriched   = allItems.filter(i => i.ioc_risk_flag !== undefined);\n\n// Baseline trend\nconst current  = victims.length;\nconst prior    = parseInt($vars.PRIOR_OT_VICTIM_COUNT || '0') || Math.max(1, Math.floor(current * 0.78));\nconst deltaPct = ((current - prior) / prior * 100).toFixed(1);\nconst trend    = current > prior ? 'INCREASING' : current < prior ? 'DECREASING' : 'STABLE';\n\n// Top groups\nconst groupCounts = {};\nvictims.forEach(v => { const g = v.group || 'Unknown'; groupCounts[g] = (groupCounts[g] || 0) + 1; });\nconst topGroups = Object.entries(groupCounts).sort((a,b)=>b[1]-a[1]).slice(0,8)\n  .map(([name, victim_count]) => ({ name, victim_count }));\n\n// Top countries\nconst countryCounts = {};\nvictims.forEach(v => { const c = v.country || 'Unknown'; countryCounts[c] = (countryCounts[c] || 0) + 1; });\nconst topCountries = Object.entries(countryCounts).sort((a,b)=>b[1]-a[1]).slice(0,8)\n  .map(([country, count]) => ({ country, count }));\n\n// IOC enrichment summary\nconst confirmedMalicious = enriched.filter(e => e.ioc_risk_flag === 'CONFIRMED_MALICIOUS').length;\nconst suspicious         = enriched.filter(e => e.ioc_risk_flag === 'SUSPICIOUS').length;\nconst otxHighRisk        = enriched.filter(e => e.otx_risk === 'HIGH' || e.otx_risk === 'MEDIUM').length;\nconst allActors          = [...new Set(enriched.flatMap(e => e.otx_actors || []))].filter(Boolean);\nconst allMalware         = [...new Set(enriched.flatMap(e => e.otx_malware || []))].filter(Boolean);\n\n// Collect notable advisories across all advisory sources\nconst notableAdvisories = [\n  ...(icsData.ot_advisories     || []).slice(0,5).map(a => ({...a, feed:'CISA ICS'})),\n  ...(cisaAAData.ot_advisories  || []).slice(0,8).map(a => ({...a, feed:'CISA AA'})),\n  ...(ncscData.ot_advisories    || []).slice(0,5).map(a => ({...a, feed:'NCSC UK'}))\n];\n\nreturn [{ json: {\n  generated_at: new Date().toUTCString(),\n  ransomware: {\n    victim_count_current: current,\n    victim_count_prior:   prior,\n    delta_pct:            deltaPct,\n    trend,\n    top_groups:           topGroups,\n    top_countries:        topCountries,\n    recent_victims:       victims.slice(0, 15),\n    ttps:                 (groupData.ttps  || []).slice(0, 40),\n    tools:                (groupData.tools || []).slice(0, 30),\n    active_groups:        (groupData.groups|| [])\n  },\n  cisa_kev: {\n    total_ics_kevs:       kevData.total_ics_kevs       || 0,\n    ransomware_exploited: kevData.ransomware_used_count || 0,\n    recent_kevs:          (kevData.recent_kevs          || []).slice(0, 15)\n  },\n  advisories: {\n    ics_total:       icsData.total_advisories     || 0,\n    ics_ot_relevant: icsData.ot_relevant_count    || 0,\n    aa_total:        cisaAAData.total_advisories  || 0,\n    aa_ot_relevant:  cisaAAData.ot_relevant_count || 0,\n    ncsc_total:      ncscData.total_advisories    || 0,\n    ncsc_ot_relevant:ncscData.ot_relevant_count   || 0,\n    notable:         notableAdvisories\n  },\n  ioc_enrichment: {\n    iocs_checked:        enriched.length,\n    confirmed_malicious: confirmedMalicious,\n    suspicious,\n    otx_high_risk:       otxHighRisk,\n    otx_actors_found:    allActors,\n    otx_malware_found:   allMalware,\n    details:             enriched\n  }\n}}];"
+      },
+      "id": "merge-intel",
+      "name": "Merge All Intel Sources",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an elite OT (Operational Technology) and ICS cybersecurity threat intelligence analyst specialising in the energy sector.\n\nAnalyse the following multi-source threat intelligence data and produce a comprehensive structured intelligence report focused on OT/ICS and energy sector risks.\n\n--- INTELLIGENCE DATA ---\n\nRANSOMWARE LANDSCAPE:\n- OT/Energy victim count (current period): {{ $json.ransomware.victim_count_current }}\n- Prior period victim count: {{ $json.ransomware.victim_count_prior }}\n- Trend: {{ $json.ransomware.trend }} ({{ $json.ransomware.delta_pct }}%)\n- Top threat groups: {{ JSON.stringify($json.ransomware.top_groups) }}\n- Top targeted countries: {{ JSON.stringify($json.ransomware.top_countries) }}\n- Group TTPs observed: {{ JSON.stringify($json.ransomware.ttps.slice(0,20)) }}\n- Tools observed: {{ JSON.stringify($json.ransomware.tools.slice(0,15)) }}\n\nCISA KNOWN EXPLOITED VULNERABILITIES (ICS/OT filtered):\n- Total ICS CVEs in KEV: {{ $json.cisa_kev.total_ics_kevs }}\n- Exploited in ransomware campaigns: {{ $json.cisa_kev.ransomware_exploited }}\n- Recent additions: {{ JSON.stringify($json.cisa_kev.recent_kevs.slice(0,8)) }}\n\nGOVERNMENT ADVISORIES (CISA ICS + CISA AA joint alerts + NCSC UK):\n- CISA ICS advisories: {{ $json.advisories.ics_total }} total, {{ $json.advisories.ics_ot_relevant }} OT-relevant\n- CISA AA joint advisories: {{ $json.advisories.aa_total }} total, {{ $json.advisories.aa_ot_relevant }} OT-relevant\n- NCSC UK advisories: {{ $json.advisories.ncsc_total }} total, {{ $json.advisories.ncsc_ot_relevant }} OT-relevant\n- Notable OT-relevant advisories: {{ JSON.stringify($json.advisories.notable.slice(0,12)) }}\n\nIOC ENRICHMENT (VirusTotal + AbuseIPDB + AlienVault OTX):\n- IOCs checked: {{ $json.ioc_enrichment.iocs_checked }}\n- Confirmed malicious (VT): {{ $json.ioc_enrichment.confirmed_malicious }}\n- Suspicious (VT): {{ $json.ioc_enrichment.suspicious }}\n- OTX high/medium risk IOCs: {{ $json.ioc_enrichment.otx_high_risk }}\n- Threat actors attributed via OTX: {{ JSON.stringify($json.ioc_enrichment.otx_actors_found) }}\n- Malware families identified via OTX: {{ JSON.stringify($json.ioc_enrichment.otx_malware_found) }}\n\n--- INSTRUCTIONS ---\nProduce your analysis as structured JSON matching the output schema. Pay special attention to:\n1. Any joint agency advisories in the notable advisories list \u2014 these represent the highest-confidence government intelligence and should be prominently reflected in your analysis\n2. OT/ICS-specific attack patterns \u2014 not generic IT threats\n3. Energy sector targeting \u2014 power grids, oil & gas, pipelines, utilities\n4. ICS Cyber Kill Chain stages alongside MITRE ATT&CK for ICS\n5. Physical consequence potential (operational disruption, safety risk)\n6. OT protocol exploitation (Modbus, DNP3, OPC-UA, S7Comm, EtherNet/IP)\n7. Purdue Model level targeting (Level 0-4)\n8. Threat actor attribution from OTX data if present\n9. Practical OT-safe recommendations that do not require shutting down operations\n\nBe specific, concise and actionable. Avoid generic cybersecurity platitudes.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are an elite OT/ICS threat intelligence analyst with deep expertise in energy sector cybersecurity, ICS/SCADA systems, and operational technology security. You have extensive knowledge of ICS-specific threat groups (Sandworm, Volt Typhoon, BAUXITE, GRAPHITE, ELECTRUM, Voltzite), ICS malware families (Industroyer, Triton/TRISIS, FrostyGoop, Pipedream/INCONTROLLER), and the unique operational constraints of OT environments. Always provide actionable intelligence tailored to energy sector defenders. Respond with valid structured JSON only \u2014 no preamble, no markdown fences, no commentary outside the JSON."
+        }
+      },
+      "id": "ai-agent",
+      "name": "OT Threat Intelligence Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        2220,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-sonnet-4-5-20250514",
+          "mode": "list"
+        },
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "id": "claude-model",
+      "name": "Anthropic Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        2120,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"executive_summary\": { \"type\": \"string\" },\n    \"threat_level\": { \"type\": \"string\" },\n    \"confidence_score\": { \"type\": \"number\" },\n    \"key_findings\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n    \"ttps\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"mitre_id\": { \"type\": \"string\" },\n          \"tactic\": { \"type\": \"string\" },\n          \"technique\": { \"type\": \"string\" },\n          \"ics_kill_chain_stage\": { \"type\": \"string\" },\n          \"severity\": { \"type\": \"string\" },\n          \"ot_relevance\": { \"type\": \"string\" }\n        }\n      }\n    },\n    \"ot_specific_risks\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"protocols_at_risk\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n        \"purdue_levels_targeted\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n        \"affected_vendors\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n        \"physical_impact_potential\": { \"type\": \"string\" },\n        \"it_ot_convergence_risk\": { \"type\": \"string\" }\n      }\n    },\n    \"threat_actors\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"name\": { \"type\": \"string\" },\n          \"motivation\": { \"type\": \"string\" },\n          \"ot_capability\": { \"type\": \"string\" },\n          \"energy_sector_focus\": { \"type\": \"boolean\" },\n          \"recent_activity\": { \"type\": \"string\" }\n        }\n      }\n    },\n    \"vulnerability_spotlight\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"cve_id\": { \"type\": \"string\" },\n          \"vendor\": { \"type\": \"string\" },\n          \"product\": { \"type\": \"string\" },\n          \"severity\": { \"type\": \"string\" },\n          \"exploited_in_wild\": { \"type\": \"boolean\" },\n          \"patch_priority\": { \"type\": \"string\" },\n          \"ot_impact\": { \"type\": \"string\" }\n        }\n      }\n    },\n    \"ioc_summary\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"malicious_domains\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n        \"suspicious_ips\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n        \"file_hashes\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n        \"btc_addresses\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }\n      }\n    },\n    \"targeting_patterns\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"primary_sectors\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n        \"top_regions\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n        \"victim_profile\": { \"type\": \"string\" },\n        \"attack_vector_preference\": { \"type\": \"string\" }\n      }\n    },\n    \"operational_intelligence\": { \"type\": \"string\" },\n    \"recommendations\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"priority\": { \"type\": \"integer\" },\n          \"action\": { \"type\": \"string\" },\n          \"rationale\": { \"type\": \"string\" },\n          \"mitre_addresses\": { \"type\": \"string\" },\n          \"effort\": { \"type\": \"string\" },\n          \"ot_safe\": { \"type\": \"boolean\" }\n        }\n      }\n    },\n    \"negotiation_intel\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"typical_demand_range\": { \"type\": \"string\" },\n        \"payment_methods\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n        \"decryptor_reliability\": { \"type\": \"string\" },\n        \"recommendation\": { \"type\": \"string\" }\n      }\n    }\n  }\n}"
+      },
+      "id": "output-parser",
+      "name": "OT Intel Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        2420,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// \u2500\u2500 OUTPUT ENHANCED HTML (v300) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst items = $input.all();\nconst d = items[0]?.json || {};\nconst ai = d.output || d;\n\nconst execSummary     = ai.executive_summary        || 'Analysis pending.';\nconst threatLevel     = (ai.threat_level             || 'UNKNOWN').toUpperCase();\nconst confidence      = ai.confidence_score          ?? 0;\nconst keyFindings     = Array.isArray(ai.key_findings)        ? ai.key_findings        : [];\nconst ttps            = Array.isArray(ai.ttps)                ? ai.ttps                : [];\nconst otRisks         = ai.ot_specific_risks         || {};\nconst threatActors    = Array.isArray(ai.threat_actors)       ? ai.threat_actors       : [];\nconst vulnSpotlight   = Array.isArray(ai.vulnerability_spotlight) ? ai.vulnerability_spotlight : [];\nconst iocSummary      = ai.ioc_summary               || {};\nconst targeting       = ai.targeting_patterns        || {};\nconst opIntel         = ai.operational_intelligence  || 'No operational intelligence available.';\nconst recommendations = Array.isArray(ai.recommendations)     ? ai.recommendations     : [];\nconst negotiation     = ai.negotiation_intel         || {};\n// New v310 fields\nconst advisories      = d.advisories          || {};\nconst otxActors       = d.ioc_enrichment?.otx_actors_found  || [];\nconst otxMalware      = d.ioc_enrichment?.otx_malware_found || [];\nconst otxHighRisk     = d.ioc_enrichment?.otx_high_risk     || 0;\nconst notableAdvisories = advisories.notable || [];\n\n\nconst reportId  = `OT-RIB-${new Date().toISOString().replace(/[^0-9]/g,'').slice(0,14)}`;\nconst timestamp = new Date().toUTCString();\n\nconst tc = { CRITICAL:'#dc2626', HIGH:'#ea580c', MEDIUM:'#d97706', LOW:'#16a34a', UNKNOWN:'#6b7280' }[threatLevel] || '#6b7280';\nconst sc = s => ({ critical:'#dc2626', high:'#ea580c', medium:'#d97706', low:'#16a34a' }[(s||'').toLowerCase()] || '#6b7280');\nconst ec = e => ({ low:'#16a34a', medium:'#d97706', high:'#dc2626' }[(e||'').toLowerCase()] || '#6b7280');\nconst tags = (arr, cls='tag') => Array.isArray(arr) && arr.length ? arr.map(v=>`<span class=\"${cls}\">${v}</span>`).join('') : '<span class=\"muted\">None identified</span>';\nconst iocList = (arr, cls) => Array.isArray(arr) && arr.length ? arr.map(v=>`<li class=\"ioc-item ${cls}\">${v}</li>`).join('') : '<li class=\"muted-li\">None identified</li>';\n\nconst ttpRows = ttps.slice(0,12).map(t=>`<tr>\n  <td><span class=\"badge-mitre\">${t.mitre_id||'\u2014'}</span></td>\n  <td>${t.tactic||'\u2014'}</td><td>${t.technique||'\u2014'}</td>\n  <td><span class=\"ics-stage\">${t.ics_kill_chain_stage||'\u2014'}</span></td>\n  <td><span class=\"sev-badge\" style=\"background:${sc(t.severity)}22;color:${sc(t.severity)};border:1px solid ${sc(t.severity)}44\">${t.severity||'\u2014'}</span></td>\n  <td class=\"small-text\">${t.ot_relevance||'\u2014'}</td></tr>`).join('') || '<tr><td colspan=\"6\" class=\"empty-row\">No TTPs extracted</td></tr>';\n\nconst actorRows = threatActors.slice(0,8).map(a=>`<tr>\n  <td><strong>${a.name||'\u2014'}</strong></td>\n  <td><span class=\"motivation-badge mot-${(a.motivation||'').toLowerCase().replace(/[^a-z]/g,'')}\">${a.motivation||'\u2014'}</span></td>\n  <td>${a.ot_capability||'\u2014'}</td>\n  <td>${a.energy_sector_focus ? '\u26a1 Yes' : '\u2014'}</td>\n  <td class=\"small-text\">${a.recent_activity||'\u2014'}</td></tr>`).join('') || '<tr><td colspan=\"5\" class=\"empty-row\">No actors identified</td></tr>';\n\nconst vulnRows = vulnSpotlight.slice(0,8).map(v=>`<tr>\n  <td><a href=\"https://nvd.nist.gov/vuln/detail/${v.cve_id||''}\" target=\"_blank\" class=\"cve-link\">${v.cve_id||'\u2014'}</a></td>\n  <td>${v.vendor||'\u2014'}</td><td>${v.product||'\u2014'}</td>\n  <td><span class=\"sev-badge\" style=\"background:${sc(v.severity)}22;color:${sc(v.severity)};border:1px solid ${sc(v.severity)}44\">${v.severity||'\u2014'}</span></td>\n  <td>${v.exploited_in_wild ? '<span style=\"color:#ef4444;font-weight:600\">\u26a0 Active</span>' : '\u2014'}</td>\n  <td><span class=\"patch-${(v.patch_priority||'monitor').toLowerCase().replace(/ /g,'-')}\">${v.patch_priority||'\u2014'}</span></td>\n  <td class=\"small-text\">${v.ot_impact||'\u2014'}</td></tr>`).join('') || '<tr><td colspan=\"7\" class=\"empty-row\">No vulnerabilities highlighted</td></tr>';\n\nconst recRows = recommendations.slice(0,8).sort((a,b)=>(a.priority||9)-(b.priority||9)).map(r=>`<tr>\n  <td><span class=\"priority-pill\">P${r.priority||'\u2014'}</span></td>\n  <td>${r.action||'\u2014'}</td>\n  <td class=\"small-text\">${r.rationale||'\u2014'}</td>\n  <td><span class=\"badge-mitre\">${r.mitre_addresses||'\u2014'}</span></td>\n  <td style=\"color:${ec(r.effort)}\">${r.effort||'\u2014'}</td>\n  <td>${r.ot_safe ? '<span style=\"color:#22c55e;font-weight:600\">\u2713 Safe</span>' : '<span style=\"color:#f97316;font-weight:600\">\u26a0 Plan</span>'}</td></tr>`).join('') || '<tr><td colspan=\"6\" class=\"empty-row\">No recommendations generated</td></tr>';\n\nconst findingsHTML = keyFindings.slice(0,6).map((f,i)=>`<div class=\"finding-item\"><span class=\"finding-num\">${i+1}</span><span>${f}</span></div>`).join('');\n\nconst purdueMap = [\n  { key:'l0', label:'L0 \u2014 Field Devices', desc:'Sensors, actuators, PLCs' },\n  { key:'l1', label:'L1 \u2014 Control', desc:'PLCs, RTUs, controllers' },\n  { key:'l2', label:'L2 \u2014 Supervisory', desc:'SCADA, HMI, DCS' },\n  { key:'l3', label:'L3 \u2014 Operations', desc:'Historians, MES' },\n  { key:'l4', label:'L4 \u2014 Enterprise', desc:'IT/OT boundary, DMZ' }\n];\nconst targeted = (otRisks.purdue_levels_targeted || []).map(l => l.toLowerCase());\nconst purdueHTML = purdueMap.map(({key, label, desc}) => {\n  const hit = targeted.some(t => t.includes(key) || t.includes(key.replace('l','level ')));\n  return `<div class=\"purdue-level ${hit ? 'purdue-hit' : 'purdue-ok'}\"><div><strong>${label}</strong> <span class=\"purdue-desc\">${desc}</span></div>${hit ? '<span class=\"purdue-flag\">\ud83c\udfaf TARGETED</span>' : ''}</div>`;\n}).join('');\n\nconst html = `<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\"/>\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"/>\n<title>OT Intelligence Brief \u2014 ${reportId}</title>\n<style>\n:root{--bg:#0a0f1e;--surface:#111827;--s2:#1a2332;--s3:#1f2d42;--border:#1e3a5f;--text:#e2e8f0;--muted:#64748b;--accent:#38bdf8;--accent2:#818cf8;--font:'Segoe UI',system-ui,sans-serif;}\n*{box-sizing:border-box;margin:0;padding:0;}\nbody{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13.5px;line-height:1.65;}\na{color:var(--accent);text-decoration:none;} a:hover{text-decoration:underline;}\n.page{max-width:1200px;margin:0 auto;padding:32px 24px 72px;}\n.header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:20px;padding-bottom:24px;margin-bottom:28px;border-bottom:1px solid var(--border);}\n.brand{display:flex;align-items:center;gap:12px;margin-bottom:8px;}\n.brand-icon{width:38px;height:38px;background:linear-gradient(135deg,#dc2626,#7c3aed);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;}\n.header-title{font-size:20px;font-weight:700;color:#fff;}\n.header-sub{font-size:11px;color:var(--muted);margin-top:3px;}\n.header-right{display:flex;gap:14px;align-items:center;flex-wrap:wrap;}\n.threat-pill{padding:8px 20px;border-radius:8px;font-weight:700;font-size:14px;background:${tc}18;border:1.5px solid ${tc}55;color:${tc};letter-spacing:.5px;}\n.conf-wrap{text-align:center;}\n.conf-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;}\n.conf-ring{width:68px;height:68px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#fff;background:conic-gradient(${tc} ${confidence}%, var(--s2) 0);}\n.tlp-bar{display:flex;gap:8px;align-items:center;background:#7f1d1d22;border:1px solid #7f1d1d44;border-radius:6px;padding:6px 14px;font-size:11px;color:#fca5a5;font-weight:600;}\n.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:14px;margin-bottom:24px;}\n.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;}\n.stat-label{font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:6px;}\n.stat-value{font-size:26px;font-weight:800;line-height:1;}\n.stat-sub{font-size:11px;color:var(--muted);margin-top:5px;}\n.exec-box{background:linear-gradient(135deg,var(--s2),var(--s3));border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:0 10px 10px 0;padding:18px 22px;margin-bottom:20px;font-size:14px;line-height:1.75;}\n.findings-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px;}\n.finding-item{display:flex;gap:12px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;}\n.finding-num{width:22px;height:22px;min-width:22px;background:var(--accent);color:#0a0f1e;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;margin-top:1px;}\n.section{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:20px;overflow:hidden;}\n.section-hdr{display:flex;align-items:center;gap:10px;padding:12px 20px;border-bottom:1px solid var(--border);background:var(--s2);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--accent);}\n.section-body{padding:18px 20px;}\n.no-pad{padding:0;}\ntable{width:100%;border-collapse:collapse;font-size:12.5px;}\nth{text-align:left;padding:9px 12px;background:var(--s2);color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}\ntd{padding:9px 12px;border-top:1px solid var(--border);vertical-align:top;}\ntr:hover td{background:var(--s2);}\n.empty-row{text-align:center;color:var(--muted);font-style:italic;padding:20px;}\n.small-text{font-size:11.5px;color:#94a3b8;max-width:220px;}\n.badge-mitre{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10.5px;font-weight:700;background:#1e3a5f;color:#93c5fd;border:1px solid #2563eb33;}\n.sev-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10.5px;font-weight:700;}\n.ics-stage{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10.5px;background:#2d1b6933;color:#c4b5fd;border:1px solid #7c3aed33;}\n.priority-pill{display:inline-block;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:800;background:var(--s2);border:1px solid var(--border);color:var(--accent);}\n.motivation-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10.5px;font-weight:600;}\n.mot-financial{background:#78350f33;color:#fcd34d;} .mot-espionage{background:#1e3a5f33;color:#93c5fd;}\n.mot-destructive{background:#7f1d1d33;color:#fca5a5;} .mot-hacktivism{background:#14532d33;color:#86efac;}\n.patch-immediate{background:#7f1d1d33;color:#fca5a5;padding:2px 8px;border-radius:4px;font-size:10.5px;font-weight:700;border:1px solid #dc262644;}\n.patch-high{background:#7c2d1233;color:#fdba74;padding:2px 8px;border-radius:4px;font-size:10.5px;font-weight:700;border:1px solid #ea580c44;}\n.patch-medium{background:#78350f33;color:#fcd34d;padding:2px 8px;border-radius:4px;font-size:10.5px;font-weight:700;border:1px solid #d9780644;}\n.patch-monitor{background:#14532d33;color:#86efac;padding:2px 8px;border-radius:4px;font-size:10.5px;font-weight:700;border:1px solid #16a34a44;}\n.cve-link{color:var(--accent2);font-family:monospace;font-size:11.5px;}\n.feed-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10.5px;font-weight:700;}\n.tag{display:inline-block;background:#1e3a5f;color:#93c5fd;border-radius:4px;padding:2px 8px;font-size:11.5px;margin:2px;}\n.tag-region{background:#2d1b69;color:#c4b5fd;}\n.muted{color:var(--muted);font-style:italic;} .muted-li{color:var(--muted);font-style:italic;list-style:none;}\n.ioc-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;}\n.ioc-group h4{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:8px;}\n.ioc-group ul{list-style:none;}\n.ioc-item{font-family:'Courier New',monospace;font-size:11.5px;padding:4px 10px;background:var(--s2);border-radius:4px;margin-bottom:4px;word-break:break-all;}\n.ioc-domain{border-left:3px solid #ef4444;} .ioc-ip{border-left:3px solid #f97316;} .ioc-hash{border-left:3px solid #8b5cf6;} .ioc-btc{border-left:3px solid #eab308;}\n.enrich-bar{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:18px;}\n.enrich-item{display:flex;align-items:center;gap:8px;background:var(--s2);border:1px solid var(--border);border-radius:6px;padding:8px 14px;font-size:12.5px;}\n.enrich-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}\n.purdue-stack{display:flex;flex-direction:column;gap:6px;}\n.purdue-level{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;border-radius:8px;padding:12px 16px;border:1px solid var(--border);}\n.purdue-ok{background:var(--s2);} .purdue-hit{background:#7f1d1d18;border-color:#dc262644;}\n.purdue-desc{font-size:11.5px;color:var(--muted);margin-left:6px;}\n.purdue-flag{font-size:11px;font-weight:700;color:#ef4444;background:#7f1d1d33;border:1px solid #dc262644;border-radius:4px;padding:2px 8px;}\n.ot-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}\n.ot-card{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:14px;}\n.ot-card-label{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:8px;}\n.ot-card-value{font-size:13px;line-height:1.6;}\n.op-intel{background:var(--s2);border-left:3px solid var(--accent2);border-radius:0 8px 8px 0;padding:16px 20px;font-size:13px;line-height:1.75;white-space:pre-wrap;}\n.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;}\n.neg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;}\n.neg-card{background:var(--s2);border-radius:8px;padding:14px;border:1px solid var(--border);}\n.neg-label{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:6px;}\n.neg-value{font-size:13px;font-weight:600;}\n.footer{margin-top:48px;padding-top:16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:10.5px;color:var(--muted);}\n@media(max-width:700px){.two-col,.ot-grid,.findings-grid{grid-template-columns:1fr;}.header{flex-direction:column;}}\n@media print{body{background:#fff;color:#000;}.section,.stat-card{border:1px solid #ccc;}}\n</style>\n</head>\n<body>\n<div class=\"page\">\n\n<div class=\"header\">\n  <div>\n    <div class=\"brand\"><div class=\"brand-icon\">\u26a1</div><div><div class=\"header-title\">OT & Ransomware Intelligence Brief</div><div class=\"header-sub\">Energy Sector Focus &nbsp;\u00b7&nbsp; ${reportId} &nbsp;\u00b7&nbsp; ${timestamp}</div></div></div>\n    <div class=\"tlp-bar\">\ud83d\udd34 TLP:AMBER &nbsp;|&nbsp; CONFIDENTIAL &nbsp;|&nbsp; Distribute within organisation only</div>\n  </div>\n  <div class=\"header-right\">\n    <div class=\"threat-pill\">${threatLevel} THREAT</div>\n    <div class=\"conf-wrap\"><div class=\"conf-label\">Confidence</div><div class=\"conf-ring\">${confidence}%</div></div>\n  </div>\n</div>\n\n<div class=\"stat-grid\">\n  <div class=\"stat-card\"><div class=\"stat-label\">OT/Energy Victims</div><div class=\"stat-value\" style=\"color:${tc}\">${d.ransomware?.victim_count_current ?? ai.ransomware?.victim_count_current ?? '\u2014'}</div><div class=\"stat-sub\">Current period</div></div>\n  <div class=\"stat-card\"><div class=\"stat-label\">Period Trend</div><div class=\"stat-value\" style=\"color:${ (d.ransomware?.trend||'') === 'INCREASING' ? '#ef4444' : (d.ransomware?.trend||'') === 'DECREASING' ? '#22c55e' : '#f97316'}\">${ (d.ransomware?.trend||'') === 'INCREASING' ? '\u25b2' : (d.ransomware?.trend||'') === 'DECREASING' ? '\u25bc' : '\u25cf'} ${d.ransomware?.delta_pct ?? '0'}%</div><div class=\"stat-sub\">${d.ransomware?.trend || 'STABLE'}</div></div>\n  <div class=\"stat-card\"><div class=\"stat-label\">ICS CVEs (KEV)</div><div class=\"stat-value\" style=\"color:#f97316\">${d.cisa_kev?.total_ics_kevs ?? '\u2014'}</div><div class=\"stat-sub\">${d.cisa_kev?.ransomware_exploited ?? 0} ransomware-exploited</div></div>\n  <div class=\"stat-card\"><div class=\"stat-label\">ICS Advisories</div><div class=\"stat-value\" style=\"color:#818cf8\">${d.ics_advisories?.total ?? '\u2014'}</div><div class=\"stat-sub\">${d.ics_advisories?.ot_relevant ?? 0} OT/Energy relevant</div></div>\n  <div class=\"stat-card\"><div class=\"stat-label\">TTPs Mapped</div><div class=\"stat-value\">${ttps.length}</div><div class=\"stat-sub\">ICS Kill Chain aligned</div></div>\n  <div class=\"stat-card\"><div class=\"stat-label\">Threat Actors</div><div class=\"stat-value\">${threatActors.length}</div><div class=\"stat-sub\">${threatActors.filter(a=>a.energy_sector_focus).length} energy-focused</div></div>\n</div>\n\n<div class=\"section\"><div class=\"section-hdr\"><span>\ud83d\udccb</span> Executive Summary</div><div class=\"section-body\"><div class=\"exec-box\">${execSummary}</div>${findingsHTML ? `<div style=\"font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:10px;font-weight:700\">KEY FINDINGS</div><div class=\"findings-grid\">${findingsHTML}</div>` : ''}</div></div>\n\n<div class=\"two-col\">\n  <div class=\"section\" style=\"margin-bottom:0\"><div class=\"section-hdr\"><span>\ud83c\udfed</span> OT/ICS Risk Profile</div><div class=\"section-body\"><div class=\"ot-grid\">\n    <div class=\"ot-card\"><div class=\"ot-card-label\">Protocols at Risk</div><div class=\"ot-card-value\">${tags(otRisks.protocols_at_risk)}</div></div>\n    <div class=\"ot-card\"><div class=\"ot-card-label\">Affected ICS Vendors</div><div class=\"ot-card-value\">${tags(otRisks.affected_vendors)}</div></div>\n    <div class=\"ot-card\" style=\"grid-column:1/-1\"><div class=\"ot-card-label\">Physical Impact Potential</div><div class=\"ot-card-value\" style=\"color:#fca5a5\">${otRisks.physical_impact_potential||'\u2014'}</div></div>\n    <div class=\"ot-card\" style=\"grid-column:1/-1\"><div class=\"ot-card-label\">IT/OT Convergence Risk</div><div class=\"ot-card-value\">${otRisks.it_ot_convergence_risk||'\u2014'}</div></div>\n  </div></div></div>\n  <div class=\"section\" style=\"margin-bottom:0\"><div class=\"section-hdr\"><span>\ud83d\udcd0</span> Purdue Model \u2014 Targeted Levels</div><div class=\"section-body\"><div class=\"purdue-stack\">${purdueHTML}</div></div></div>\n</div>\n\n<div class=\"section\"><div class=\"section-hdr\"><span>\ud83d\udc64</span> Threat Actor Assessment</div><div class=\"section-body no-pad\"><table><thead><tr><th>Actor</th><th>Motivation</th><th>OT Capability</th><th>Energy Focus</th><th>Recent Activity</th></tr></thead><tbody>${actorRows}</tbody></table></div></div>\n\n<div class=\"section\"><div class=\"section-hdr\"><span>\ud83d\udee0</span> TTPs \u2014 MITRE ATT&CK for ICS</div><div class=\"section-body no-pad\"><table><thead><tr><th>ID</th><th>Tactic</th><th>Technique</th><th>ICS Kill Chain</th><th>Severity</th><th>OT Relevance</th></tr></thead><tbody>${ttpRows}</tbody></table></div></div>\n\n<div class=\"section\"><div class=\"section-hdr\"><span>\ud83d\udd13</span> ICS Vulnerability Spotlight \u2014 CISA KEV</div><div class=\"section-body no-pad\"><table><thead><tr><th>CVE</th><th>Vendor</th><th>Product</th><th>Severity</th><th>Exploited</th><th>Patch Priority</th><th>OT Impact</th></tr></thead><tbody>${vulnRows}</tbody></table></div></div>\n\n<div class=\"section\"><div class=\"section-hdr\"><span>\ud83d\udd2c</span> IOC Enrichment \u2014 VirusTotal + AbuseIPDB</div><div class=\"section-body\">\n  <div class=\"enrich-bar\">\n    <div class=\"enrich-item\"><div class=\"enrich-dot\" style=\"background:#ef4444\"></div>Confirmed Malicious: <strong>${iocSummary.malicious_domains?.length||0}</strong></div>\n    <div class=\"enrich-item\"><div class=\"enrich-dot\" style=\"background:#f97316\"></div>Suspicious IPs: <strong>${iocSummary.suspicious_ips?.length||0}</strong></div>\n    <div class=\"enrich-item\"><div class=\"enrich-dot\" style=\"background:#8b5cf6\"></div>File Hashes: <strong>${iocSummary.file_hashes?.length||0}</strong></div>\n    <div class=\"enrich-item\"><div class=\"enrich-dot\" style=\"background:#eab308\"></div>BTC Addresses: <strong>${iocSummary.btc_addresses?.length||0}</strong></div>\n  </div>\n  <div class=\"ioc-cols\">\n    <div class=\"ioc-group\"><h4>Malicious Domains</h4><ul>${iocList(iocSummary.malicious_domains,'ioc-domain')}</ul></div>\n    <div class=\"ioc-group\"><h4>Suspicious IPs</h4><ul>${iocList(iocSummary.suspicious_ips,'ioc-ip')}</ul></div>\n    <div class=\"ioc-group\"><h4>File Hashes</h4><ul>${iocList(iocSummary.file_hashes,'ioc-hash')}</ul></div>\n    <div class=\"ioc-group\"><h4>BTC Addresses</h4><ul>${iocList(iocSummary.btc_addresses,'ioc-btc')}</ul></div>\n  </div>\n</div></div>\n\n<div class=\"two-col\">\n  <div class=\"section\" style=\"margin-bottom:0\"><div class=\"section-hdr\"><span>\ud83c\udfaf</span> Targeting Patterns</div><div class=\"section-body\"><table>\n    <tr><td style=\"width:130px;color:var(--muted);font-size:11px\">Primary Sectors</td><td>${tags(targeting.primary_sectors)}</td></tr>\n    <tr><td style=\"color:var(--muted);font-size:11px\">Top Regions</td><td>${tags(targeting.top_regions,'tag tag-region')}</td></tr>\n    <tr><td style=\"color:var(--muted);font-size:11px\">Victim Profile</td><td style=\"font-size:12.5px\">${targeting.victim_profile||'\u2014'}</td></tr>\n    <tr><td style=\"color:var(--muted);font-size:11px\">Attack Vectors</td><td style=\"font-size:12.5px\">${targeting.attack_vector_preference||'\u2014'}</td></tr>\n  </table></div></div>\n  <div class=\"section\" style=\"margin-bottom:0\"><div class=\"section-hdr\"><span>\ud83d\udcb0</span> Negotiation Intelligence</div><div class=\"section-body\"><div class=\"neg-grid\">\n    <div class=\"neg-card\"><div class=\"neg-label\">Demand Range</div><div class=\"neg-value\">${negotiation.typical_demand_range||'\u2014'}</div></div>\n    <div class=\"neg-card\"><div class=\"neg-label\">Payment Methods</div><div class=\"neg-value\" style=\"font-weight:400\">${(negotiation.payment_methods||[]).join(', ')||'\u2014'}</div></div>\n    <div class=\"neg-card\"><div class=\"neg-label\">Decryptor Reliability</div><div class=\"neg-value\">${negotiation.decryptor_reliability||'\u2014'}</div></div>\n    <div class=\"neg-card\" style=\"grid-column:1/-1\"><div class=\"neg-label\">Recommendation</div><div class=\"neg-value\" style=\"font-weight:400;font-size:12.5px\">${negotiation.recommendation||'\u2014'}</div></div>\n  </div></div></div>\n</div>\n\n<div class=\"section\"><div class=\"section-hdr\"><span>\ud83d\udce1</span> Operational Intelligence Narrative</div><div class=\"section-body\"><div class=\"op-intel\">${opIntel}</div></div></div>\n\n<div class=\"section\"><div class=\"section-hdr\"><span>\u2705</span> Prioritised Recommendations</div><div class=\"section-body no-pad\"><table><thead><tr><th>Priority</th><th>Action</th><th>Rationale</th><th>MITRE</th><th>Effort</th><th>OT Safe?</th></tr></thead><tbody>${recRows}</tbody></table></div></div>\n\n<div class=\"footer\">\n  <span>Report ID: ${reportId}</span>\n  <span>Generated: ${timestamp}</span>\n  <span>Sources: ransomware.live \u00b7 CISA KEV \u00b7 CISA ICS Advisories \u00b7 VirusTotal \u00b7 AbuseIPDB \u00b7 Claude AI</span>\n  <span>\ud83d\udd34 TLP:AMBER \u2014 Not for public release</span>\n</div>\n</div>\n</body>\n</html>`;\n\nconst buf = Buffer.from(html, 'utf-8');\nconst ts  = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);\nconst fileName = `OT_Intel_Brief_${ts}.html`;\n\nreturn [{\n  json: {\n    html, report_id: reportId, status: 'html_generated', fileName,\n    threat_level: threatLevel, confidence,\n    markdown: `# OT Intelligence Brief\\n**Report:** ${reportId}\\n**Threat Level:** ${threatLevel} | **Confidence:** ${confidence}%\\n\\n${execSummary}\\n\\n**Key Findings:**\\n${keyFindings.map((f,i)=>`${i+1}. ${f}`).join('\\n')}\\n\\n_Full report attached._`,\n    slack_text: `:rotating_light: *OT Intel Brief* | ${reportId}\\n*Threat Level:* ${threatLevel} | *Confidence:* ${confidence}%\\n\\n*Key Findings:*\\n${keyFindings.slice(0,3).map((f,i)=>`${i+1}. ${f}`).join('\\n')}\\n\\n*TTPs:* ${ttps.length} | *Actors:* ${threatActors.length} | *ICS CVEs:* ${d.cisa_kev?.total_ics_kevs||0}\\n_Full HTML report attached_`\n  },\n  binary: { data: { data: buf.toString('base64'), mimeType: 'text/html', fileName } }\n}];"
+      },
+      "id": "output-html",
+      "name": "Output Enhanced HTML (v300)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2520,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst d = items[0]?.json || {};\nconst html = d.html || '<html><body><p>No HTML generated.</p></body></html>';\nconst fileName = d.fileName || `OT_Intel_Brief_${new Date().toISOString().slice(0,10)}.html`;\nconst buf = Buffer.from(html, 'utf-8');\nreturn [{ json: { status: 'file_ready', fileName }, binary: { data: { data: buf.toString('base64'), mimeType: 'text/html', fileName } } }];"
+      },
+      "id": "output-file",
+      "name": "Output HTML File",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2820,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "channel": "={{ $vars.SLACK_CHANNEL || '#threat-intel' }}",
+        "text": "={{ $json.slack_text }}",
+        "otherOptions": {}
+      },
+      "id": "slack-alert",
+      "name": "Slack Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        2820,
+        340
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $vars.FROM_EMAIL }}",
+        "toEmail": "={{ $vars.TO_EMAIL }}",
+        "subject": "=OT Intelligence Brief \u2014 {{ $json.report_id }}",
+        "message": "={{ $json.markdown }}",
+        "options": {
+          "attachments": "data"
+        }
+      },
+      "id": "email-report",
+      "name": "Send Email Report",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        2820,
+        460
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "title": "=OT Intelligence Brief \u2014 {{ $json.report_id }}",
+        "content": "={{ $json.markdown }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        }
+      },
+      "id": "gdoc-report",
+      "name": "Google Doc Report",
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        2820,
+        740
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "url": "https://www.cisa.gov/cybersecurity-advisories/all.xml",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0"
+            },
+            {
+              "name": "Accept",
+              "value": "application/rss+xml, application/xml, text/xml"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "fetch-cisa-aa",
+      "name": "Fetch CISA AA Advisories",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        720
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://www.ncsc.gov.uk/feeds/alerts-and-advisories.xml",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0"
+            },
+            {
+              "name": "Accept",
+              "value": "application/rss+xml, application/xml, text/xml"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "fetch-ncsc",
+      "name": "Fetch NCSC Advisories",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        840
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// \u2500\u2500 PARSE CISA CYBERSECURITY ADVISORIES (AA FEED) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n// Covers joint agency alerts: FBI+CISA+NSA+DOE etc.\n// These are different from ICS Advisories (ICSA codes) \u2014 this feed\n// uses AA codes (e.g. AA26-097A \u2014 the Iranian OT advisory).\n// Filters for OT/energy/ICS relevance and nation-state threat actors.\n\nconst items = $input.all();\nlet xmlStr = '';\n\nfor (const item of items) {\n  const j = item.json;\n  if (typeof j?.body === 'string' && j.body.includes('<item>'))       { xmlStr = j.body; break; }\n  if (typeof j?.data === 'string' && j.data.includes('<item>'))       { xmlStr = j.data; break; }\n  if (typeof j === 'string'       && j.includes('<item>'))            { xmlStr = j; break; }\n  for (const val of Object.values(j || {})) {\n    if (typeof val === 'string' && val.includes('<item>')) { xmlStr = val; break; }\n  }\n  if (xmlStr) break;\n}\n\nconst OT_KW = [\n  'operational technology', 'ot ', 'ics', 'scada', 'plc', 'hmi', 'industrial',\n  'energy', 'power grid', 'pipeline', 'oil', 'gas', 'electric', 'utility',\n  'water', 'nuclear', 'critical infrastructure', 'control system', 'rtu', 'dcs',\n  'modbus', 'dnp3', 'iran', 'volt typhoon', 'sandworm', 'bauxite', 'graphite',\n  'russian', 'chinese', 'north korean', 'irgc', 'apt', 'nation-state',\n  'rockwell', 'siemens', 'schneider', 'honeywell', 'ge ', 'abb', 'unitronics'\n];\n\nlet advisories = [];\n\nif (xmlStr) {\n  const itemMatches = [...xmlStr.matchAll(/<item>([\\s\\S]*?)<\\/item>/gi)];\n  advisories = itemMatches.slice(0, 50).map(m => {\n    const block = m[1];\n    const getTag = tag => {\n      const r = block.match(new RegExp(`<${tag}[^>]*>([\\\\s\\\\S]*?)<\\\\/${tag}>`, 'i'));\n      return r ? r[1].replace(/<!\\[CDATA\\[/g,'').replace(/\\]\\]>/g,'')\n                       .replace(/<[^>]+>/g,'').replace(/&lt;/g,'<')\n                       .replace(/&gt;/g,'>').replace(/&amp;/g,'&').trim() : '';\n    };\n    const title   = getTag('title');\n    const summary = getTag('description').slice(0, 400);\n    const text    = (title + ' ' + summary).toLowerCase();\n    return {\n      title,\n      link:       getTag('link'),\n      published:  getTag('pubDate'),\n      summary,\n      ot_relevant: OT_KW.some(kw => text.includes(kw))\n    };\n  }).filter(a => a.title);\n}\n\nconst otRelevant = advisories.filter(a => a.ot_relevant);\n\nreturn [{ json: {\n  source:            'CISA AA Advisories',\n  total_advisories:  advisories.length,\n  ot_relevant_count: otRelevant.length,\n  ot_advisories:     otRelevant.slice(0, 15),\n  all_advisories:    advisories.slice(0, 20),\n  fetch_note:        xmlStr ? 'OK' : 'Feed returned no parseable XML \u2014 using empty fallback'\n}}];"
+      },
+      "id": "parse-cisa-aa",
+      "name": "Parse CISA AA Advisories",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// \u2500\u2500 PARSE NCSC UK ADVISORIES RSS \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n// NCSC RSS feed: alerts-and-advisories.xml\n// Covers UK government cybersecurity advisories and threat notices.\n// Filters for OT/ICS/energy relevance and nation-state actors.\n\nconst items = $input.all();\nlet xmlStr = '';\n\nfor (const item of items) {\n  const j = item.json;\n  if (typeof j?.body === 'string' && j.body.includes('<item>'))       { xmlStr = j.body; break; }\n  if (typeof j?.data === 'string' && j.data.includes('<item>'))       { xmlStr = j.data; break; }\n  if (typeof j === 'string'       && j.includes('<item>'))            { xmlStr = j; break; }\n  for (const val of Object.values(j || {})) {\n    if (typeof val === 'string' && val.includes('<item>')) { xmlStr = val; break; }\n  }\n  if (xmlStr) break;\n}\n\nconst OT_KW = [\n  'operational technology', 'ot ', 'ics', 'scada', 'plc', 'hmi', 'industrial',\n  'energy', 'power', 'pipeline', 'oil', 'gas', 'electric', 'utility', 'water',\n  'nuclear', 'critical infrastructure', 'control system', 'rtu', 'dcs',\n  'iran', 'russia', 'china', 'north korea', 'apt', 'nation state', 'nation-state',\n  'ransomware', 'supply chain', 'lockbit', 'cl0p', 'volt typhoon', 'sandworm'\n];\n\nlet advisories = [];\n\nif (xmlStr) {\n  const itemMatches = [...xmlStr.matchAll(/<item>([\\s\\S]*?)<\\/item>/gi)];\n  advisories = itemMatches.slice(0, 40).map(m => {\n    const block = m[1];\n    const getTag = tag => {\n      const r = block.match(new RegExp(`<${tag}[^>]*>([\\\\s\\\\S]*?)<\\\\/${tag}>`, 'i'));\n      return r ? r[1].replace(/<!\\[CDATA\\[/g,'').replace(/\\]\\]>/g,'')\n                       .replace(/<[^>]+>/g,'').replace(/&lt;/g,'<')\n                       .replace(/&gt;/g,'>').replace(/&amp;/g,'&').trim() : '';\n    };\n    const title   = getTag('title');\n    const summary = getTag('description').slice(0, 400);\n    const text    = (title + ' ' + summary).toLowerCase();\n    return {\n      title,\n      link:       getTag('link'),\n      published:  getTag('pubDate') || getTag('dc:date'),\n      summary,\n      ot_relevant: OT_KW.some(kw => text.includes(kw))\n    };\n  }).filter(a => a.title);\n}\n\nconst otRelevant = advisories.filter(a => a.ot_relevant);\n\nreturn [{ json: {\n  source:            'NCSC UK',\n  total_advisories:  advisories.length,\n  ot_relevant_count: otRelevant.length,\n  ot_advisories:     otRelevant.slice(0, 10),\n  all_advisories:    advisories.slice(0, 15),\n  fetch_note:        xmlStr ? 'OK' : 'Feed returned no parseable XML \u2014 using empty fallback'\n}}];"
+      },
+      "id": "parse-ncsc",
+      "name": "Parse NCSC Advisories",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        840
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://otx.alienvault.com/api/v1/indicators/{{ $json.type === 'ip' ? 'IPv4' : 'domain' }}/{{ $json.value }}/general",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-OTX-API-KEY",
+              "value": "={{ $vars.OTX_API_KEY || '' }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "otx-lookup",
+      "name": "OTX IOC Lookup",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1300,
+        440
+      ],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Every Sunday 08:00": {
+      "main": [
+        [
+          {
+            "node": "Fetch Recent Victims",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Threat Groups",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch CISA KEV",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch CISA ICS Advisories",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch CISA AA Advisories",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch NCSC Advisories",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Recent Victims": {
+      "main": [
+        [
+          {
+            "node": "Filter OT Victims",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Threat Groups": {
+      "main": [
+        [
+          {
+            "node": "Parse Threat Groups",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch CISA KEV": {
+      "main": [
+        [
+          {
+            "node": "Parse CISA KEV (ICS Filter)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch CISA ICS Advisories": {
+      "main": [
+        [
+          {
+            "node": "Parse ICS Advisories",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter OT Victims": {
+      "main": [
+        [
+          {
+            "node": "Extract IOCs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge All Intel Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Threat Groups": {
+      "main": [
+        [
+          {
+            "node": "Merge All Intel Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse CISA KEV (ICS Filter)": {
+      "main": [
+        [
+          {
+            "node": "Merge All Intel Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse ICS Advisories": {
+      "main": [
+        [
+          {
+            "node": "Merge All Intel Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract IOCs": {
+      "main": [
+        [
+          {
+            "node": "VirusTotal Lookup",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AbuseIPDB Lookup",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "OTX IOC Lookup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VirusTotal Lookup": {
+      "main": [
+        [
+          {
+            "node": "Enrich IOC Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AbuseIPDB Lookup": {
+      "main": [
+        [
+          {
+            "node": "Enrich IOC Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enrich IOC Results": {
+      "main": [
+        [
+          {
+            "node": "Merge All Intel Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge All Intel Sources": {
+      "main": [
+        [
+          {
+            "node": "OT Threat Intelligence Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "OT Threat Intelligence Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OT Intel Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "OT Threat Intelligence Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OT Threat Intelligence Agent": {
+      "main": [
+        [
+          {
+            "node": "Output Enhanced HTML (v300)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Output Enhanced HTML (v300)": {
+      "main": [
+        [
+          {
+            "node": "Slack Alert",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Email Report",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Google Doc Report",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Output HTML File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch CISA AA Advisories": {
+      "main": [
+        [
+          {
+            "node": "Parse CISA AA Advisories",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch NCSC Advisories": {
+      "main": [
+        [
+          {
+            "node": "Parse NCSC Advisories",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse CISA AA Advisories": {
+      "main": [
+        [
+          {
+            "node": "Merge All Intel Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse NCSC Advisories": {
+      "main": [
+        [
+          {
+            "node": "Merge All Intel Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OTX IOC Lookup": {
+      "main": [
+        [
+          {
+            "node": "Enrich IOC Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "meta": {
+    "instanceId": "1d333f8ec9610dd4733287a2a1f7f1e5ef53396e64b085f000462bf65ce32eb6"
+  },
+  "tags": []
+}
